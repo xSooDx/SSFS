@@ -34,26 +34,81 @@ int do_getattr( const char *path, struct stat *st )
 	return 0;
 }
 
-int ss_opendir(const char *path, struct fuse_file_info *fi)
-{    
-	DIR *d;
-	char* s_ext = strrchr(path,'+')+1;
+int ss_unlink(const char *path)
+{
+	int retstat=0;
+	char fp[PATH_MAX];
+	char * p =strchr(path,'>');
+	if(p)
+	{
+		convPath(fp,p);
+		if(unlink(fp)==-1)
+			retstat=-1;
+	}
+	else
+	{
+		retstat=-1;
+	}
+	return retstat;
+}
 
+int ss_opendir(const char *path, struct fuse_file_info *fi)
+{   
 
     return 0;
 }
-
 int ss_getattr(const char *path, struct stat *statbuf)
 {
-    int retstat = 0;
+	int retstat=0;
+	char fp[PATH_MAX];
+	char * p =strchr(path,'>');
+	if(p)
+	{
+		convPath(fp,p);
+		stat(fp,statbuf);
+	}else statbuf->st_mode=S_IFDIR | 0666; 
+
+
+	return retstat;
+}
+
+/*int ss_getattr(const char *path, struct stat *statbuf)
+{
+    int retstat = 0;	
     statbuf->st_mode=S_IFDIR | 0666;    
     return retstat;
+}*/
+int ss_open(const char *path, struct fuse_file_info *fi)
+{
+	int retstat = 0;
+	int fd ;
+	char fp[PATH_MAX];
+	char * p =strchr(path,'>');
+	if(p)
+	{
+		convPath(fp,p);
+		fd = open(fp,fi->flags);
+		if(fd<0) retstat=-1;
+		fi->fh=fd;
+	}
+	return retstat;
+}
+int ss_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+{
+	int retstat = 0;
+
+	if(pread(fi->fh,buf,size,offset)==-1)
+	{
+		retstat=-1;
+	}
+
+	return retstat;
+
 }
 
 int ss_readdir( const char *path, void *buffer, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi )
 {
-  typedef int (*fuse_fill_dir_t) (void *buf, const char *name,
-				const struct stat *stbuf, off_t off);
+  
 				
 	filler( buffer, ".", NULL, 0 );
 	filler( buffer, "..", NULL, 0 );
@@ -61,23 +116,9 @@ int ss_readdir( const char *path, void *buffer, fuse_fill_dir_t filler, off_t of
 	
 	if ( strcmp( path, "/" ) == 0 )
 	{
-	  DIR *d = opendir(ss_data->rootdir);
-	  struct  dirent *e;
-		while(e=readdir(d))
-		{
-			if(!(strcmp(e->d_name,".")==0 || strcmp(e->d_name,"..")==0))
-		  	{	
-		  		char *ext = getExtension(e->d_name);
-		  		if(ext)
-		  		{
-		  			ext[0]='+';		  			
-		  			struct stat s;
-		  			
-  		  			filler( buffer, ext, NULL, 0 );
-		  		}
-  			}
-  		
-		}		
+		linkSet *ls=createLSet();
+	  	findExt(ss_data->rootdir,buffer,filler,ls);	
+	  	ls_destroy(ls);
 	}
 	else
 	{
@@ -85,48 +126,24 @@ int ss_readdir( const char *path, void *buffer, fuse_fill_dir_t filler, off_t of
 		if(p[1]=='+')
 		{
 			p[1]='.';
-			DIR *d = opendir(ss_data->rootdir);
-	 		struct  dirent *e;
-			while(e=readdir(d))
-			{
-				if(!(strcmp(e->d_name,".")==0 || strcmp(e->d_name,"..")==0))
-			  	{	
-			  		char *ext = getExtension(e->d_name);
-			  		if(ext && strcmp(ext,&p[1])==0)
-			  		{
-  			  			filler( buffer, e->d_name, NULL, 0 );
-			  		}
-  				}
-  			
-			}		
+
+			readAllExt(ss_data->rootdir,&p[1],buffer,filler);		
 		}
 	}
 	
 	return 0;
 }
 
-int do_read( const char *path, char *buffer, size_t size, off_t offset, struct fuse_file_info *fi )
-{
-  char file54Text[] = "Hello World From File54!";
-	char file349Text[] = "Hello World From File349!";
-	char *selectedText = NULL;
-	
-	if ( strcmp( path, "/file54" ) == 0 )
-		selectedText = file54Text;
-	else if ( strcmp( path, "/file349" ) == 0 )
-		selectedText = file349Text;
-	else
-		return -1;
-	memcpy( buffer, selectedText + offset, size );
-		
-	return strlen( selectedText ) - offset;
-}
+
 
 struct fuse_operations ss_ops = {
     .getattr	= ss_getattr,
     .readdir	= ss_readdir,
-    .read	= do_read,
+    .open = ss_open,
+    .read = ss_read,
+    .unlink = ss_unlink,
     .opendir = ss_opendir,
+    //.rmdir = ss_rmdir,
 };
 
 
