@@ -149,7 +149,7 @@ void readAllExt(char *pathname, const char *ext, void *buffer,fuse_fill_dir_t fi
 	            strcpy(fpt,pathname);
 	            strcat(fpt,"/");
 	            strcat(fpt,dir->d_name);
-	            str_replace(fpt,'/','>');
+	            str_replace(fpt,'/',']');
 	            filler(buffer,fpt,NULL,0);
 	        }
         	
@@ -196,6 +196,45 @@ void findExt(char *pathname, void *buffer, fuse_fill_dir_t filler,linkSet *extSe
 void convPath(char* buff, const char *path)
 {
 	strcpy(buff,path);
-	str_replace(buff,'>','/');
+	str_replace(buff,']','/');
 }
 
+void rmExt(char *pathname, const char *dext)
+{
+	DIR *d;
+    struct dirent *dir;
+    d = opendir(pathname);
+    while((dir = readdir(d)) != NULL)
+    {
+        printf("%s\t%u\n", dir->d_name, dir->d_type);
+        if(dir->d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0)
+        {
+            char *str2 = malloc(strlen(pathname)+2+strlen(dir->d_name));
+            strcpy(str2, pathname); /* copy name into the new var */
+            strcat(str2, "/");
+            strcat(str2, dir->d_name);
+            rmExt(str2,dext);
+        }
+        else if (dir->d_type == DT_LNK)
+        {
+            char str1[40];
+            int r = readlink(dir->d_name,str1,40);
+            
+        }
+        else
+        {
+        	char *ext = getExtension(dir->d_name);
+	  		if(ext && !(strcmp(ext,".")==0 || strcmp(ext,"..")==0))
+	  		{
+	  			if(strcmp(ext,dext)==0)
+	  			{
+	  				char fpt[PATH_MAX];
+	        	    strcpy(fpt,pathname);
+	            	strcat(fpt,"/");
+	            	strcat(fpt,dir->d_name);
+	  				unlink(fpt);
+	  			}
+	  		}
+        }
+    }
+}

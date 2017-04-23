@@ -14,31 +14,13 @@
 
 extern struct ss_state *ss_data;
 
-int do_getattr( const char *path, struct stat *st )
-{
-	printf( "[getattr] Called\n" );
-	printf( "\tAttributes of %s requested\n", path );
-	
-	if ( strcmp( path, "/" ) == 0 )
-	{
-		st->st_mode = S_IFDIR | 0755;
-		st->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
-	}
-	else
-	{
-		st->st_mode = S_IFREG | 0444;
-		st->st_nlink = 1;
-		st->st_size = 1024;
-	}
-	
-	return 0;
-}
+int g;
 
 int ss_unlink(const char *path)
 {
 	int retstat=0;
 	char fp[PATH_MAX];
-	char * p =strchr(path,'>');
+	char * p =strchr(path,']');
 	if(p)
 	{
 		convPath(fp,p);
@@ -61,7 +43,7 @@ int ss_getattr(const char *path, struct stat *statbuf)
 {
 	int retstat=0;
 	char fp[PATH_MAX];
-	char * p =strchr(path,'>');
+	char * p =strchr(path,']');
 	if(p)
 	{
 		convPath(fp,p);
@@ -72,38 +54,59 @@ int ss_getattr(const char *path, struct stat *statbuf)
 	return retstat;
 }
 
-/*int ss_getattr(const char *path, struct stat *statbuf)
-{
-    int retstat = 0;	
-    statbuf->st_mode=S_IFDIR | 0666;    
-    return retstat;
-}*/
+
 int ss_open(const char *path, struct fuse_file_info *fi)
 {
 	int retstat = 0;
 	int fd ;
 	char fp[PATH_MAX];
-	char * p =strchr(path,'>');
+	char * p =strchr(path,']');
+	
 	if(p)
 	{
+		//return -1;
 		convPath(fp,p);
 		fd = open(fp,fi->flags);
-		if(fd<0) retstat=-1;
+		if(fd<0) return -1;
 		fi->fh=fd;
 	}
 	return retstat;
 }
 int ss_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-	int retstat = 0;
+	int retstat=0;
 
-	if(pread(fi->fh,buf,size,offset)==-1)
-	{
-		retstat=-1;
-	}
-
+	retstat = pread(fi->fh,buf,size,offset);
 	return retstat;
 
+}
+int ss_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+{
+	int retstat=0;
+
+	retstat = pwrite(fi->fh,buf,size,offset);
+	return retstat;
+
+}
+int ss_truncate(const char *path, off_t newsize)
+{
+  char fp[PATH_MAX];
+	char * p =strchr(path,']');
+	
+	if(p)
+	{
+		//return -1;
+		convPath(fp,p);
+		return truncate(fp,newsize);
+	}
+	return 0; 
+}
+int ss_ftruncate(const char *path, off_t offset, struct fuse_file_info *fi)
+{
+  int retstat=0;
+
+	retstat = ftruncate(fi->fh,offset);
+	return retstat;
 }
 
 int ss_readdir( const char *path, void *buffer, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi )
@@ -134,6 +137,19 @@ int ss_readdir( const char *path, void *buffer, fuse_fill_dir_t filler, off_t of
 	return 0;
 }
 
+int ss_rmdir(const char *path)
+{
+	int retstat = 0;
+	char *ext = strrchr(path,'+');
+	if(ext)
+	{
+		ext[0]='.';
+		rmExt(ss_data->rootdir,ext);
+	}
+	else retstat = -1;
+
+	return retstat;
+}
 
 
 struct fuse_operations ss_ops = {
@@ -141,9 +157,12 @@ struct fuse_operations ss_ops = {
     .readdir	= ss_readdir,
     .open = ss_open,
     .read = ss_read,
+    .write = ss_write,
     .unlink = ss_unlink,
     .opendir = ss_opendir,
-    //.rmdir = ss_rmdir,
+    .rmdir = ss_rmdir,
+    .truncate = ss_truncate,
+    .ftruncate = ss_ftruncate,
 };
 
 
