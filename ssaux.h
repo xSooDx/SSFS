@@ -1,3 +1,8 @@
+/*
+  Functions used for SSFS
+  Authors: Saurabh Sood & Shivangi Sharma
+*/
+
 #include<string.h>
 #include<dirent.h>
 #include<stdlib.h>
@@ -12,6 +17,7 @@ struct ss_state
 
 ////LINKED SET////
 
+// Link Set Node 
 struct lsn
 {
 	struct lsn *next;
@@ -19,7 +25,7 @@ struct lsn
 };
 
 typedef struct lsn ls_node;
-
+// Link Set 
 typedef struct {
 	ls_node *first;
 	ls_node *last;
@@ -93,7 +99,7 @@ void ls_destroy(linkSet *l)
 
 struct ss_state *ss_data;
 
-
+// get full path
 static void ss_fullpath(char fpath[PATH_MAX], const char *path)
 {
     strcpy(fpath, ss_data->rootdir);
@@ -101,12 +107,13 @@ static void ss_fullpath(char fpath[PATH_MAX], const char *path)
 				    // break here
 }
 
+/Extract file extension
 char* getExtension(const char* path)
 {
 	return strrchr(path,'.');
 }
 
-
+//replace char c with w in  a string
 void str_replace(char *s,const char c,const char w)
 {
 	while(s && s[0]!='\0')
@@ -117,6 +124,7 @@ void str_replace(char *s,const char c,const char w)
 	return;
 }
 
+//find all files with the specifed extension and add them to the filler
 void readAllExt(char *pathname, const char *ext, void *buffer,fuse_fill_dir_t filler)
 {
 	//filler( buffer, "b", NULL, 0 );
@@ -157,6 +165,8 @@ void readAllExt(char *pathname, const char *ext, void *buffer,fuse_fill_dir_t fi
     }
 }
 
+
+//Find uniqe extensions. Uses link set
 void findExt(char *pathname, void *buffer, fuse_fill_dir_t filler,linkSet *extSet)
 {
 	DIR *d;
@@ -193,12 +203,14 @@ void findExt(char *pathname, void *buffer, fuse_fill_dir_t filler,linkSet *extSe
 
 }
 
+//conver ssfs file name path to actual path
 void convPath(char* buff, const char *path)
 {
 	strcpy(buff,path);
 	str_replace(buff,']','/');
 }
 
+//remove files with specified extension
 void rmExt(char *pathname, const char *dext)
 {
 	DIR *d;

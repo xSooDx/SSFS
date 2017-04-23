@@ -1,4 +1,10 @@
- #define FUSE_USE_VERSION 30
+/*
+  SSFS: Organises files based on extensions.
+  Displays file names as the full path of the file from actual root.
+  Authors: Saurabh Sood & Shivangi Sharma
+*/
+
+#define FUSE_USE_VERSION 30
 
 #include <fuse.h>
 #include <stdio.h>
@@ -11,6 +17,8 @@
 #include <limits.h>
 #include <dirent.h>
 #include "ssaux.h"
+
+
 
 extern struct ss_state *ss_data;
 
@@ -64,7 +72,6 @@ int ss_open(const char *path, struct fuse_file_info *fi)
 	
 	if(p)
 	{
-		//return -1;
 		convPath(fp,p);
 		fd = open(fp,fi->flags);
 		if(fd<0) return -1;
@@ -95,7 +102,6 @@ int ss_truncate(const char *path, off_t newsize)
 	
 	if(p)
 	{
-		//return -1;
 		convPath(fp,p);
 		return truncate(fp,newsize);
 	}
